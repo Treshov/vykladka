@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Выкладка — трекер роликов</title>
+<link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <h1>Выкладка</h1>
+      <span class="brand-sub" id="channelCount">каналов пока нет</span>
+    </div>
+
+    <div class="toolbar">
+      <button class="icon-btn" id="prevMonthBtn" title="Предыдущий месяц" aria-label="Предыдущий месяц">‹</button>
+      <button class="month-label" id="monthLabel" type="button">Месяц Год</button>
+      <button class="icon-btn" id="nextMonthBtn" title="Следующий месяц" aria-label="Следующий месяц">›</button>
+      <button class="pill-btn" id="todayBtn">Сегодня</button>
+
+      <span class="toolbar-sep"></span>
+
+      <button class="icon-btn" id="demoToggleBtn" title="Демо-режим" aria-label="Демо-режим">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+      <button class="icon-btn" id="themeToggleBtn" title="Тёмная тема" aria-label="Переключить тему">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+      </button>
+
+      <button class="primary-btn" id="addChannelBtn">
+        <span class="plus">+</span> Добавить канал
+      </button>
+
+      <div class="menu-wrap">
+        <button class="icon-btn" id="menuBtn" title="Меню" aria-label="Меню">⋯</button>
+        <div class="menu-dropdown hidden" id="menuDropdown">
+          <div class="menu-note">
+            <span class="menu-note-title">Данные хранятся здесь:</span>
+            <span>Память браузера</span>
+          </div>
+          <button class="menu-item" id="exportBtn">Скачать резервную копию</button>
+          <button class="menu-item" id="importBtn">Загрузить копию из файла</button>
+          <button class="menu-item menu-item-danger" id="wipeBtn">Удалить все данные</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section class="summary hidden" id="summaryBar">
+    <div class="summary-progress">
+      <svg class="progress-ring" width="44" height="44" viewBox="0 0 44 44">
+        <circle class="progress-ring-bg" cx="22" cy="22" r="19"></circle>
+        <circle class="progress-ring-fg" id="progressRing" cx="22" cy="22" r="19"></circle>
+      </svg>
+      <span class="progress-ring-text" id="progressRingText">0/0</span>
+    </div>
+    <div class="summary-text">
+      <div class="summary-title" id="summaryTitle">Сегодня осталось: 0</div>
+      <div class="summary-date" id="summaryDate"></div>
+    </div>
+    <div class="summary-chips" id="summaryChips"></div>
+  </section>
+
+  <main id="channelsContainer">
+    <div class="empty-state" id="emptyState">
+      <h2>Добавьте первый канал</h2>
+      <p>Каждый канал получит свой календарь. Нажмите на день и отметьте, вышел ролик или нет.</p>
+      <button class="primary-btn" id="emptyAddBtn"><span class="plus">+</span> Добавить канал</button>
+    </div>
+    <div class="channels-grid hidden" id="channelsGrid"></div>
+  </main>
+
+  <footer class="legend hidden" id="legend">
+    <span class="legend-item"><i class="dot dot-done"></i>Выложил</span>
+    <span class="legend-item"><i class="dot dot-planned"></i>В плане</span>
+    <span class="legend-item"><i class="dot dot-missed"></i>Пропустил</span>
+    <span class="legend-item"><i class="dot dot-off"></i>Выходной</span>
+    <span class="legend-item"><i class="dot dot-today"></i>Сегодня</span>
+    <span class="legend-note">Будущие дни тоже кликаются — их можно планировать</span>
+  </footer>
+
+</div>
+
+<!-- Channel add/edit modal -->
+<div class="modal-overlay hidden" id="channelModalOverlay">
+  <div class="modal" id="channelModal">
+    <h2 id="channelModalTitle">Новый канал</h2>
+
+    <label class="field-label">Обложка</label>
+    <div class="cover-row">
+      <div class="avatar-preview" id="avatarPreview">?</div>
+      <div class="cover-actions">
+        <span>Загрузите аватарку канала — она обрежется в квадрат.</span>
+        <button type="button" class="link-btn" id="removeAvatarBtn">Убрать картинку</button>
+      </div>
+      <input type="file" id="avatarInput" accept="image/*" class="hidden" />
+    </div>
+
+    <label class="field-label">Цвет без картинки</label>
+    <div class="accent-row" id="accentRow"></div>
+
+    <label class="field-label" for="channelNameInput">Название канала</label>
+    <input type="text" id="channelNameInput" class="text-input" placeholder="Например, Shorts про финансы" />
+
+    <label class="field-label" for="channelStartInput">Отслеживать с</label>
+    <input type="date" id="channelStartInput" class="text-input" />
+
+    <div class="modal-actions">
+      <button class="ghost-btn" id="channelCancelBtn">Отмена</button>
+      <button class="primary-btn" id="channelSaveBtn">Добавить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Day status popover -->
+<div class="popover hidden" id="dayPopover">
+  <div class="popover-header">
+    <div class="popover-date" id="popoverDate"></div>
+    <div class="popover-channel" id="popoverChannel"></div>
+  </div>
+  <button class="popover-option" id="popoverDoneBtn">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+    <span id="popoverDoneLabel">Выложил</span>
+  </button>
+  <button class="popover-option" id="popoverMissedBtn">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    <span id="popoverMissedLabel">Не выложил</span>
+  </button>
+  <div class="popover-footer">
+    <button class="popover-link" id="popoverOffBtn">Выходной</button>
+    <button class="popover-link" id="popoverClearBtn">Убрать отметку</button>
+  </div>
+</div>
+
+<input type="file" id="importFileInput" accept="application/json" class="hidden" />
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
