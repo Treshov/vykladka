@@ -64,7 +64,7 @@ body {
 .hidden { display: none !important; }
 
 .app {
-  max-width: 1080px;
+  max-width: 1320px;
   margin: 0 auto;
   padding: 24px 24px 60px;
 }
@@ -338,36 +338,43 @@ body {
 .channels-grid {
   margin-top: 16px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+@media (min-width: 900px) {
+  .channels-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 .channel-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 22px;
-  padding: 18px;
+  border-radius: 16px;
+  padding: 13px;
   box-shadow: var(--shadow);
   backdrop-filter: blur(20px);
+  min-width: 0;
 }
 
 .channel-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
+  gap: 8px;
+  margin-bottom: 10px;
 }
 
 .channel-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 25px;
+  height: 25px;
+  border-radius: 7px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 10px;
   flex: none;
   background-size: cover;
   background-position: center;
@@ -376,35 +383,38 @@ body {
 .channel-meta { flex: 1; min-width: 0; }
 .channel-name {
   font-weight: 700;
-  font-size: 14px;
+  font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .channel-streak {
-  font-size: 11px;
+  font-size: 9px;
   color: var(--text-faint);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .channel-streak .flame { color: var(--done); }
 
-.channel-actions { display: flex; gap: 2px; }
-.channel-actions .icon-btn { width: 28px; height: 28px; color: var(--text-faint); }
+.channel-actions { display: flex; gap: 0; flex: none; }
+.channel-actions .icon-btn { width: 20px; height: 20px; color: var(--text-faint); }
 .channel-actions .icon-btn:hover { color: var(--text); }
 
 .calendar-weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
-  margin-bottom: 6px;
+  gap: 3px;
+  margin-bottom: 4px;
 }
 .calendar-weekdays span {
   text-align: center;
-  font-size: 10px;
+  font-size: 8px;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   color: var(--text-faint);
   text-transform: uppercase;
 }
@@ -412,7 +422,7 @@ body {
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
+  gap: 3px;
 }
 
 .day-cell {
@@ -421,8 +431,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 9px;
-  font-size: 12px;
+  border-radius: 6px;
+  font-size: 9px;
   font-weight: 600;
   color: var(--text-dim);
   background: var(--surface-soft);
@@ -468,16 +478,17 @@ body {
 .channel-footer {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-top: 12px;
-  font-size: 11px;
+  gap: 7px;
+  margin-top: 9px;
+  font-size: 9px;
   font-weight: 700;
+  white-space: nowrap;
 }
 .stat-done { color: var(--done); }
 .stat-missed { color: var(--missed); }
 .footer-bar {
   flex: 1;
-  height: 4px;
+  height: 3px;
   border-radius: 999px;
   background: var(--border);
   overflow: hidden;
@@ -679,4 +690,5 @@ body {
   .topbar { flex-direction: column; align-items: stretch; }
   .toolbar { justify-content: space-between; }
   .summary-chips { margin-left: 0; width: 100%; }
+  .channels-grid { grid-template-columns: 1fr; }
 }
