@@ -10,7 +10,7 @@ import {
   MONTH_NAMES_GENITIVE,
 } from "./dateUtils.js";
 import { computeStreak, computeMonthStats, computeAllTimeStats } from "./stats.js";
-import { noteStatusLabel, notesForChannel } from "./notes.js";
+import { noteStatusLabel, notesForChannel, ALL_CHANNELS } from "./notes.js";
 
 function initials(name) {
   return (name || "?").trim().charAt(0).toUpperCase() || "?";
@@ -233,7 +233,15 @@ function buildNoteRow(note, channels, ctx) {
 
   const channelCell = document.createElement("div");
   channelCell.className = "note-channel";
-  if (channel) {
+  if (note.channelId === ALL_CHANNELS) {
+    const av = document.createElement("span");
+    av.className = "chip-avatar chip-avatar-all";
+    av.textContent = "∀";
+    const nameEl = document.createElement("span");
+    nameEl.className = "note-channel-name";
+    nameEl.textContent = "Для всех";
+    channelCell.append(av, nameEl);
+  } else if (channel) {
     const av = document.createElement("span");
     av.className = "chip-avatar";
     applyAvatarStyle(av, channel);
@@ -321,7 +329,6 @@ export function renderMetricsTable(container, channels, data) {
   container.innerHTML = "";
   for (const channel of channels) {
     const marks = data.marks[channel.id] || {};
-    const streak = computeStreak(channel, marks);
     const { done, missed } = computeAllTimeStats(marks);
     const rate = done + missed > 0 ? Math.round((done / (done + missed)) * 100) : 0;
     const channelNotes = notesForChannel(data.notes, channel.id);
@@ -341,10 +348,6 @@ export function renderMetricsTable(container, channels, data) {
     nameEl.textContent = channel.name;
     channelCell.append(av, nameEl);
 
-    const streakEl = document.createElement("div");
-    streakEl.className = "metric-streak";
-    streakEl.textContent = streak > 0 ? `${streak} 🔥` : "—";
-
     const doneEl = document.createElement("div");
     doneEl.className = "metric-value is-done";
     doneEl.textContent = String(done);
@@ -361,7 +364,7 @@ export function renderMetricsTable(container, channels, data) {
     notesEl.className = "metric-value";
     notesEl.textContent = `${notesDone}/${channelNotes.length}`;
 
-    row.append(channelCell, streakEl, doneEl, missedEl, rateEl, notesEl);
+    row.append(channelCell, doneEl, missedEl, rateEl, notesEl);
     container.appendChild(row);
   }
 }

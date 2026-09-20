@@ -9,7 +9,7 @@ import {
   renderMetricsTable,
 } from "./render.js";
 import { todayISO, formatFullDate, addDaysISO, compareISO } from "./dateUtils.js";
-import { genNoteId, activeNotes, deletedNotes } from "./notes.js";
+import { genNoteId, activeNotes, deletedNotes, ALL_CHANNELS } from "./notes.js";
 
 const ACCENTS = [
   "#ff5f6d,#ffc371",
@@ -243,13 +243,17 @@ function renderMetricsView() {
 
 function populateNoteChannelSelect(selectedId) {
   dom.noteChannelSelect.innerHTML = "";
+  const allOpt = document.createElement("option");
+  allOpt.value = ALL_CHANNELS;
+  allOpt.textContent = "Для всех";
+  dom.noteChannelSelect.appendChild(allOpt);
   for (const channel of state.data.channels) {
     const opt = document.createElement("option");
     opt.value = channel.id;
     opt.textContent = channel.name;
     dom.noteChannelSelect.appendChild(opt);
   }
-  if (selectedId) dom.noteChannelSelect.value = selectedId;
+  dom.noteChannelSelect.value = selectedId || state.data.channels[0]?.id || ALL_CHANNELS;
 }
 
 function openNoteAddModal() {

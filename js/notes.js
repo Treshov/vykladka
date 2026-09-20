@@ -1,3 +1,5 @@
+export const ALL_CHANNELS = "__all__";
+
 export const NOTE_STATUSES = [
   { value: "progress", label: "В работе" },
   { value: "done", label: "Сделано" },
@@ -21,5 +23,5 @@ export function deletedNotes(notes) {
 }
 
 export function notesForChannel(notes, channelId) {
-  return activeNotes(notes).filter((n) => n.channelId === channelId);
+  return activeNotes(notes).filter((n) => n.channelId === channelId || n.channelId === ALL_CHANNELS);
 }
