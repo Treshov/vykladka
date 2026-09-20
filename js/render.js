@@ -5,10 +5,12 @@ import {
   toISODate,
   todayISO,
   formatMonthYear,
+  formatDateWithYear,
   compareISO,
   MONTH_NAMES_GENITIVE,
 } from "./dateUtils.js";
-import { computeStreak, computeMonthStats } from "./stats.js";
+import { computeStreak, computeMonthStats, computeAllTimeStats } from "./stats.js";
+import { noteStatusLabel, notesForChannel } from "./notes.js";
 
 function initials(name) {
   return (name || "?").trim().charAt(0).toUpperCase() || "?";
@@ -215,5 +217,151 @@ export function renderSummary(elements, data) {
       elements.onChipClick(channel.id, evt.currentTarget);
     });
     summaryChips.appendChild(chip);
+  }
+}
+
+function findChannel(channels, id) {
+  return channels.find((c) => c.id === id);
+}
+
+function buildNoteRow(note, channels, ctx) {
+  const { onStatusClick, onEdit, onDelete, onRestore, onDeleteForever, trashMode } = ctx;
+  const channel = findChannel(channels, note.channelId);
+
+  const row = document.createElement("div");
+  row.className = "notes-row";
+
+  const channelCell = document.createElement("div");
+  channelCell.className = "note-channel";
+  if (channel) {
+    const av = document.createElement("span");
+    av.className = "chip-avatar";
+    applyAvatarStyle(av, channel);
+    if (!channel.avatar) av.textContent = initials(channel.name);
+    const nameEl = document.createElement("span");
+    nameEl.className = "note-channel-name";
+    nameEl.textContent = channel.name;
+    channelCell.append(av, nameEl);
+  } else {
+    channelCell.textContent = "Канал удалён";
+  }
+
+  const statusBtn = document.createElement("button");
+  statusBtn.type = "button";
+  statusBtn.className = `status-pill status-${note.status}`;
+  statusBtn.textContent = noteStatusLabel(note.status);
+  if (!trashMode) {
+    statusBtn.addEventListener("click", (evt) => {
+      evt.stopPropagation();
+      onStatusClick(note.id, evt.currentTarget);
+    });
+  } else {
+    statusBtn.disabled = true;
+    statusBtn.style.cursor = "default";
+  }
+
+  const commentEl = document.createElement("div");
+  commentEl.className = "note-comment";
+  commentEl.textContent = note.comment || "—";
+
+  const dateEl = document.createElement("div");
+  dateEl.className = "note-date";
+  dateEl.textContent = formatDateWithYear(note.date);
+
+  const actions = document.createElement("div");
+  actions.className = "note-actions";
+
+  if (!trashMode) {
+    const editBtn = document.createElement("button");
+    editBtn.className = "icon-btn";
+    editBtn.title = "Редактировать заметку";
+    editBtn.innerHTML = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`;
+    editBtn.addEventListener("click", () => onEdit(note.id));
+    const delBtn = document.createElement("button");
+    delBtn.className = "icon-btn";
+    delBtn.title = "Удалить заметку";
+    delBtn.innerHTML = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>`;
+    delBtn.addEventListener("click", () => onDelete(note.id));
+    actions.append(editBtn, delBtn);
+  } else {
+    const restoreBtn = document.createElement("button");
+    restoreBtn.className = "icon-btn";
+    restoreBtn.title = "Восстановить заметку";
+    restoreBtn.innerHTML = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>`;
+    restoreBtn.addEventListener("click", () => onRestore(note.id));
+    const forgetBtn = document.createElement("button");
+    forgetBtn.className = "icon-btn";
+    forgetBtn.title = "Удалить навсегда";
+    forgetBtn.innerHTML = `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>`;
+    forgetBtn.addEventListener("click", () => onDeleteForever(note.id));
+    actions.append(restoreBtn, forgetBtn);
+  }
+
+  row.append(channelCell, statusBtn, commentEl, dateEl, actions);
+  return row;
+}
+
+export function renderNotesTable(container, notes, channels, ctx) {
+  container.innerHTML = "";
+  const sorted = [...notes].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  for (const note of sorted) {
+    container.appendChild(buildNoteRow(note, channels, { ...ctx, trashMode: false }));
+  }
+}
+
+export function renderDeletedTable(container, notes, channels, ctx) {
+  container.innerHTML = "";
+  const sorted = [...notes].sort((a, b) => (b.deletedAt || "").localeCompare(a.deletedAt || ""));
+  for (const note of sorted) {
+    container.appendChild(buildNoteRow(note, channels, { ...ctx, trashMode: true }));
+  }
+}
+
+export function renderMetricsTable(container, channels, data) {
+  container.innerHTML = "";
+  for (const channel of channels) {
+    const marks = data.marks[channel.id] || {};
+    const streak = computeStreak(channel, marks);
+    const { done, missed } = computeAllTimeStats(marks);
+    const rate = done + missed > 0 ? Math.round((done / (done + missed)) * 100) : 0;
+    const channelNotes = notesForChannel(data.notes, channel.id);
+    const notesDone = channelNotes.filter((n) => n.status === "done").length;
+
+    const row = document.createElement("div");
+    row.className = "notes-row";
+
+    const channelCell = document.createElement("div");
+    channelCell.className = "note-channel";
+    const av = document.createElement("span");
+    av.className = "chip-avatar";
+    applyAvatarStyle(av, channel);
+    if (!channel.avatar) av.textContent = initials(channel.name);
+    const nameEl = document.createElement("span");
+    nameEl.className = "note-channel-name";
+    nameEl.textContent = channel.name;
+    channelCell.append(av, nameEl);
+
+    const streakEl = document.createElement("div");
+    streakEl.className = "metric-streak";
+    streakEl.textContent = streak > 0 ? `${streak} 🔥` : "—";
+
+    const doneEl = document.createElement("div");
+    doneEl.className = "metric-value is-done";
+    doneEl.textContent = String(done);
+
+    const missedEl = document.createElement("div");
+    missedEl.className = "metric-value is-missed";
+    missedEl.textContent = String(missed);
+
+    const rateEl = document.createElement("div");
+    rateEl.className = "metric-rate";
+    rateEl.textContent = `${rate}%`;
+
+    const notesEl = document.createElement("div");
+    notesEl.className = "metric-value";
+    notesEl.textContent = `${notesDone}/${channelNotes.length}`;
+
+    row.append(channelCell, streakEl, doneEl, missedEl, rateEl, notesEl);
+    container.appendChild(row);
   }
 }

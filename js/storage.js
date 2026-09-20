@@ -2,7 +2,7 @@ const DATA_KEY = "vykladka:v1";
 const THEME_KEY = "vykladka:theme";
 
 function emptyData() {
-  return { channels: [], marks: {} };
+  return { channels: [], marks: {}, notes: [] };
 }
 
 export function loadData() {
@@ -13,6 +13,7 @@ export function loadData() {
     return {
       channels: Array.isArray(parsed.channels) ? parsed.channels : [],
       marks: parsed.marks && typeof parsed.marks === "object" ? parsed.marks : {},
+      notes: Array.isArray(parsed.notes) ? parsed.notes : [],
     };
   } catch (e) {
     console.error("Не удалось прочитать данные из localStorage", e);
@@ -58,7 +59,11 @@ export function importBackup(file) {
         if (!Array.isArray(parsed.channels) || typeof parsed.marks !== "object") {
           throw new Error("Некорректный формат файла");
         }
-        resolve({ channels: parsed.channels, marks: parsed.marks });
+        resolve({
+          channels: parsed.channels,
+          marks: parsed.marks,
+          notes: Array.isArray(parsed.notes) ? parsed.notes : [],
+        });
       } catch (e) {
         reject(e);
       }

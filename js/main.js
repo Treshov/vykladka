@@ -1,6 +1,15 @@
 import { loadData, saveData, loadTheme, saveTheme, wipeData, exportBackup, importBackup } from "./storage.js";
-import { renderHeaderCount, renderMonthLabel, buildCalendarCard, renderSummary } from "./render.js";
-import { todayISO, formatFullDate, compareISO } from "./dateUtils.js";
+import {
+  renderHeaderCount,
+  renderMonthLabel,
+  buildCalendarCard,
+  renderSummary,
+  renderNotesTable,
+  renderDeletedTable,
+  renderMetricsTable,
+} from "./render.js";
+import { todayISO, formatFullDate, addDaysISO, compareISO } from "./dateUtils.js";
+import { genNoteId, activeNotes, deletedNotes } from "./notes.js";
 
 const ACCENTS = [
   "#ff5f6d,#ffc371",
@@ -61,6 +70,41 @@ const dom = {
   popoverMissedLabel: el("popoverMissedLabel"),
   popoverOffBtn: el("popoverOffBtn"),
   popoverClearBtn: el("popoverClearBtn"),
+
+  sidebarBtns: document.querySelectorAll(".sidebar-btn"),
+  viewSchedule: el("viewSchedule"),
+  viewNotes: el("viewNotes"),
+  viewMetrics: el("viewMetrics"),
+  viewDeleted: el("viewDeleted"),
+
+  notesCount: el("notesCount"),
+  addNoteBtn: el("addNoteBtn"),
+  notesEmptyState: el("notesEmptyState"),
+  notesEmptyAddBtn: el("notesEmptyAddBtn"),
+  notesNoChannelsState: el("notesNoChannelsState"),
+  notesTable: el("notesTable"),
+  notesRows: el("notesRows"),
+
+  metricsCount: el("metricsCount"),
+  metricsEmptyState: el("metricsEmptyState"),
+  metricsTable: el("metricsTable"),
+  metricsRows: el("metricsRows"),
+
+  deletedCount: el("deletedCount"),
+  deletedEmptyState: el("deletedEmptyState"),
+  deletedTable: el("deletedTable"),
+  deletedRows: el("deletedRows"),
+
+  noteModalOverlay: el("noteModalOverlay"),
+  noteModalTitle: el("noteModalTitle"),
+  noteChannelSelect: el("noteChannelSelect"),
+  noteStatusSelect: el("noteStatusSelect"),
+  noteCommentInput: el("noteCommentInput"),
+  noteDateInput: el("noteDateInput"),
+  noteCancelBtn: el("noteCancelBtn"),
+  noteSaveBtn: el("noteSaveBtn"),
+
+  statusPopover: el("statusPopover"),
 };
 
 const now = new Date();
@@ -73,6 +117,9 @@ const state = {
   modalAvatar: "",
   modalAccent: ACCENTS[0],
   popover: null, // { channelId, date }
+  activeView: "schedule",
+  noteModalEditingId: null,
+  statusPopoverNoteId: null,
 };
 
 function persist() {
@@ -121,6 +168,213 @@ function renderAll() {
   );
 
   document.body.classList.toggle("demo-mode", state.demoMode);
+
+  renderNotesView();
+  renderMetricsView();
+  renderDeletedView();
+}
+
+// ---------- Sidebar / views ----------
+
+const VIEW_ELEMENTS = {
+  schedule: dom.viewSchedule,
+  notes: dom.viewNotes,
+  metrics: dom.viewMetrics,
+  deleted: dom.viewDeleted,
+};
+
+function switchView(view) {
+  state.activeView = view;
+  for (const [name, elNode] of Object.entries(VIEW_ELEMENTS)) {
+    elNode.classList.toggle("view-hidden", name !== view);
+  }
+  dom.sidebarBtns.forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.view === view);
+  });
+  closePopover();
+  closeStatusPopover();
+}
+
+dom.sidebarBtns.forEach((btn) => {
+  btn.addEventListener("click", () => switchView(btn.dataset.view));
+});
+
+// ---------- Notes view ----------
+
+function renderNotesView() {
+  const notes = activeNotes(state.data.notes);
+  const hasChannels = state.data.channels.length > 0;
+
+  dom.notesCount.textContent = notes.length === 0 ? "заметок пока нет" : `заметок: ${notes.length}`;
+  dom.addNoteBtn.disabled = !hasChannels;
+
+  dom.notesNoChannelsState.classList.toggle("hidden", hasChannels);
+  dom.notesEmptyState.classList.toggle("hidden", !hasChannels || notes.length > 0);
+  dom.notesTable.classList.toggle("hidden", !hasChannels || notes.length === 0);
+
+  renderNotesTable(dom.notesRows, notes, state.data.channels, {
+    onStatusClick: openStatusPopover,
+    onEdit: openNoteEditModal,
+    onDelete: softDeleteNote,
+  });
+}
+
+function renderDeletedView() {
+  const notes = deletedNotes(state.data.notes);
+  dom.deletedCount.textContent = notes.length === 0 ? "корзина пуста" : `в корзине: ${notes.length}`;
+  dom.deletedEmptyState.classList.toggle("hidden", notes.length > 0);
+  dom.deletedTable.classList.toggle("hidden", notes.length === 0);
+
+  renderDeletedTable(dom.deletedRows, notes, state.data.channels, {
+    onRestore: restoreNote,
+    onDeleteForever: deleteNoteForever,
+  });
+}
+
+function renderMetricsView() {
+  const channels = state.data.channels;
+  dom.metricsCount.textContent = channels.length === 0
+    ? "каналов пока нет"
+    : `${channels.length} ${channels.length === 1 ? "канал" : channels.length < 5 ? "канала" : "каналов"}`;
+  dom.metricsEmptyState.classList.toggle("hidden", channels.length > 0);
+  dom.metricsTable.classList.toggle("hidden", channels.length === 0);
+  renderMetricsTable(dom.metricsRows, channels, state.data);
+}
+
+function populateNoteChannelSelect(selectedId) {
+  dom.noteChannelSelect.innerHTML = "";
+  for (const channel of state.data.channels) {
+    const opt = document.createElement("option");
+    opt.value = channel.id;
+    opt.textContent = channel.name;
+    dom.noteChannelSelect.appendChild(opt);
+  }
+  if (selectedId) dom.noteChannelSelect.value = selectedId;
+}
+
+function openNoteAddModal() {
+  if (state.data.channels.length === 0) return;
+  state.noteModalEditingId = null;
+  dom.noteModalTitle.textContent = "Новая заметка";
+  dom.noteSaveBtn.textContent = "Добавить";
+  populateNoteChannelSelect();
+  dom.noteStatusSelect.value = "progress";
+  dom.noteCommentInput.value = "";
+  dom.noteDateInput.value = addDaysISO(todayISO(), 1);
+  dom.noteModalOverlay.classList.remove("hidden");
+  dom.noteCommentInput.focus();
+}
+
+function openNoteEditModal(noteId) {
+  const note = state.data.notes.find((n) => n.id === noteId);
+  if (!note) return;
+  state.noteModalEditingId = noteId;
+  dom.noteModalTitle.textContent = "Редактировать заметку";
+  dom.noteSaveBtn.textContent = "Сохранить";
+  populateNoteChannelSelect(note.channelId);
+  dom.noteStatusSelect.value = note.status;
+  dom.noteCommentInput.value = note.comment || "";
+  dom.noteDateInput.value = note.date;
+  dom.noteModalOverlay.classList.remove("hidden");
+}
+
+function closeNoteModal() {
+  dom.noteModalOverlay.classList.add("hidden");
+}
+
+dom.addNoteBtn.addEventListener("click", openNoteAddModal);
+dom.notesEmptyAddBtn.addEventListener("click", openNoteAddModal);
+dom.noteCancelBtn.addEventListener("click", closeNoteModal);
+dom.noteModalOverlay.addEventListener("click", (evt) => {
+  if (evt.target === dom.noteModalOverlay) closeNoteModal();
+});
+
+dom.noteSaveBtn.addEventListener("click", () => {
+  const channelId = dom.noteChannelSelect.value;
+  const status = dom.noteStatusSelect.value;
+  const comment = dom.noteCommentInput.value.trim();
+  const date = dom.noteDateInput.value || todayISO();
+  if (!channelId) return;
+
+  if (state.noteModalEditingId) {
+    const note = state.data.notes.find((n) => n.id === state.noteModalEditingId);
+    note.channelId = channelId;
+    note.status = status;
+    note.comment = comment;
+    note.date = date;
+  } else {
+    state.data.notes.push({
+      id: genNoteId(),
+      channelId,
+      status,
+      comment,
+      date,
+      deletedAt: null,
+    });
+  }
+
+  persist();
+  closeNoteModal();
+  renderAll();
+});
+
+function softDeleteNote(noteId) {
+  const note = state.data.notes.find((n) => n.id === noteId);
+  if (!note) return;
+  if (!confirm("Удалить эту заметку? Её можно будет восстановить из корзины.")) return;
+  note.deletedAt = new Date().toISOString();
+  persist();
+  renderAll();
+}
+
+function restoreNote(noteId) {
+  const note = state.data.notes.find((n) => n.id === noteId);
+  if (!note) return;
+  note.deletedAt = null;
+  persist();
+  renderAll();
+}
+
+function deleteNoteForever(noteId) {
+  if (!confirm("Удалить заметку навсегда? Это действие нельзя отменить.")) return;
+  state.data.notes = state.data.notes.filter((n) => n.id !== noteId);
+  persist();
+  renderAll();
+}
+
+// ---------- Status quick-switch popover ----------
+
+function openStatusPopover(noteId, targetEl) {
+  const note = state.data.notes.find((n) => n.id === noteId);
+  if (!note) return;
+  state.statusPopoverNoteId = noteId;
+
+  dom.statusPopover.querySelectorAll(".status-option").forEach((btn) => {
+    btn.classList.toggle("is-active", btn.dataset.status === note.status);
+    btn.onclick = (evt) => {
+      evt.stopPropagation();
+      note.status = btn.dataset.status;
+      persist();
+      closeStatusPopover();
+      renderAll();
+    };
+  });
+
+  const rect = targetEl.getBoundingClientRect();
+  const popW = 160;
+  let left = rect.left + window.scrollX;
+  left = Math.min(left, window.scrollX + document.documentElement.clientWidth - popW - 12);
+  const top = rect.bottom + window.scrollY + 6;
+  dom.statusPopover.style.left = `${left}px`;
+  dom.statusPopover.style.top = `${top}px`;
+
+  dom.statusPopover.classList.remove("hidden");
+  dom.statusPopover.addEventListener("click", (e) => e.stopPropagation(), { once: true });
+}
+
+function closeStatusPopover() {
+  state.statusPopoverNoteId = null;
+  dom.statusPopover.classList.add("hidden");
 }
 
 // ---------- Month navigation ----------
@@ -175,6 +429,7 @@ dom.menuBtn.addEventListener("click", (evt) => {
 document.addEventListener("click", () => {
   dom.menuDropdown.classList.add("hidden");
   closePopover();
+  closeStatusPopover();
 });
 
 dom.exportBtn.addEventListener("click", () => {
@@ -205,7 +460,7 @@ dom.wipeBtn.addEventListener("click", () => {
   dom.menuDropdown.classList.add("hidden");
   if (!confirm("Удалить все данные без возможности восстановления?")) return;
   wipeData();
-  state.data = { channels: [], marks: {} };
+  state.data = { channels: [], marks: {}, notes: [] };
   renderAll();
 });
 

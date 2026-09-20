@@ -25,6 +25,16 @@ export function computeStreak(channel, marks) {
   return streak;
 }
 
+export function computeAllTimeStats(channelMarks) {
+  let done = 0;
+  let missed = 0;
+  for (const status of Object.values(channelMarks)) {
+    if (status === "done") done += 1;
+    else if (status === "missed") missed += 1;
+  }
+  return { done, missed };
+}
+
 export function computeMonthStats(channelMarks, year, monthIndex) {
   let done = 0;
   let missed = 0;

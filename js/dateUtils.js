@@ -42,6 +42,11 @@ export function formatFullDate(iso) {
   return `${d.getDate()} ${MONTH_NAMES_GENITIVE[d.getMonth()]}, ${WEEKDAY_FULL[d.getDay()]}`;
 }
 
+export function formatDateWithYear(iso) {
+  const d = new Date(`${iso}T00:00:00`);
+  return `${d.getDate()} ${MONTH_NAMES_GENITIVE[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 export function compareISO(a, b) {
   return a < b ? -1 : a > b ? 1 : 0;
 }
